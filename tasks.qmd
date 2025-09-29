@@ -1,0 +1,272 @@
+---
+title: Lab 1
+fig-height: 3.5
+fig-width: 6
+warning: false
+format:
+  html:
+    code-fold: true
+    code-line-numbers: true
+    embed-resources: true
+---
+<https://github.com/rvp3011/Lab0>
+
+# Task One
+aesthetics: (x = income, y = life_exp, color = four_regions, size = population)
+```{python}
+    #| label: load-data
+    #| echo: true
+    #| code-fold: true
+    #| code-line-numbers: true
+    import pandas as pd
+    df = pd.read_csv("Data/q1data.csv")
+    from plotnine import ggplot, aes, geom_point, scale_x_log10, labs, scale_y_continuous, scale_size_continuous, guides, theme_minimal, geom_text
+    year = pd.DataFrame({
+        'x': [6850],  
+        'y': [48],    
+        'text': ['2010'] 
+    })
+    (ggplot(df, aes(x = "income", y = "life_exp", color = "four_regions", size = "population"))
+    + geom_point()
+    
+    + geom_text(
+            aes(x='x', y='y', label='text'),
+            data=year,
+            inherit_aes=False, 
+            size=120,           
+            alpha=0.3,         
+            color='gray'      
+        )
+     + scale_x_log10(breaks=[500, 1000, 2000, 4000, 8000, 16000, 32000, 64000])
+      + scale_y_continuous(
+            breaks=[20, 30, 40, 50, 60, 70, 80, 90],
+            limits=(20, 90)
+      )
+     + labs(
+            x="Income",
+            y="Life expectancy",
+        )
+        + guides(color=False, size=False)
+        + scale_size_continuous(range=[2, 18])
+        + theme_minimal() 
+    )
+   
+
+```
+
+```{python}
+    #| label: load-data
+    #| echo: true 
+    import pandas as pd
+    df = pd.read_csv("Data/q1data.csv")
+    from plotnine import ggplot, aes, geom_density_2d, geom_text, geom_smooth, scale_x_log10, scale_y_continuous, scale_size_continuous, labs, guides, theme_minimal
+    year = pd.DataFrame({
+        'x': [6850],  
+        'y': [48],    
+        'text': ['2010'] 
+    })
+    (ggplot(df, aes(x='income', y='life_exp'))
+    + geom_density_2d(color='red', size=0.8)
+    + scale_x_log10(breaks=[500, 1000, 2000, 4000, 8000, 16000, 32000, 64000])
+    + scale_y_continuous(
+            breaks=[20, 30, 40, 50, 60, 70, 80, 90],
+            limits=(20, 90)
+      )
+      + geom_text(
+            aes(x='x', y='y', label='text'),
+            data=year,
+            inherit_aes=False, 
+            size=120,           
+            alpha=0.3,         
+            color='gray'      
+        )
+     + labs(
+            x="Income",
+            y="Life expectancy",
+        )
+        + theme_minimal()
+    )
+
+   
+
+```
+This 2d density contourplot(using geom_density_2d) is a great alternative option for visualizing this data. It does a great job showing the overall shape and density of the distribution without having overlap.
+
+# Task Two
+aesthetics: (x = exports, y = imports, color = four_regions, size = energy)
+```{python}
+    #| label: load-data
+    #| echo: true
+    import pandas as pd
+    df = pd.read_csv("Data/q2data.csv")
+    from plotnine import ggplot, aes, geom_point, scale_x_continuous, labs, scale_y_continuous, scale_size_continuous, guides, theme_minimal, geom_text, scale_size_discrete
+    year = pd.DataFrame({
+        'x': [100],  
+        'y': [200],    
+        'text': ['1997'] 
+    })
+    (ggplot(df, aes(x = "exports", y = "imports", color = "four_regions", size = "energy"))
+    + geom_point()
+    
+    + geom_text(
+            aes(x='x', y='y', label='text'),
+            data=year,
+            inherit_aes=False, 
+            size=120,           
+            alpha=0.3,         
+            color='gray'      
+        )
+     + scale_x_continuous(
+         breaks=[0, 20, 40, 60, 80, 100, 120, 140, 160, 180, 200, 220],
+         limits=(0,220)
+     )
+      + scale_y_continuous(
+            breaks=[0, 50, 100, 150, 200, 250, 300, 350, 400],
+            limits=(0,400)
+      )
+ + scale_size_discrete(range=[3, 8, 10, 14, 18])      
+
+ + labs(x="Exports(\% of GDP)",y="Imports(\% of GDP)",
+        )
+       
+        + guides(color=False, size=False)
+        + theme_minimal() 
+    )
+   
+
+```      
+
+```{python}
+    #| label: load-data
+    #| echo: true
+    import pandas as pd
+    df = pd.read_csv("Data/q2data.csv")
+    from plotnine import ggplot, aes, geom_point, scale_x_continuous, labs, scale_y_continuous, scale_size_continuous, guides, theme_minimal, geom_text, scale_size_discrete, geom_line
+    year = pd.DataFrame({
+        'x': [100],  
+        'y': [200],    
+        'text': ['1997'] 
+    })
+    (ggplot(df, aes(x = "exports", y = "imports"))
+    + geom_line(size=1.5,
+        alpha=0.6,
+        color = "red",
+        show_legend=False)
+    
+    + geom_text(
+            aes(x='x', y='y', label='text'),
+            data=year,
+            inherit_aes=False, 
+            size=120,           
+            alpha=0.3,         
+            color='gray'      
+        )
+     + scale_x_continuous(
+         breaks=[0, 20, 40, 60, 80, 100, 120, 140, 160, 180, 200, 220],
+         limits=(0,220)
+     )
+      + scale_y_continuous(
+            breaks=[0, 50, 100, 150, 200, 250, 300, 350, 400],
+            limits=(0,400)
+      )
+
+ + labs(x="Exports(\% of GDP)",y="Imports(\% of GDP)",
+        )
+       
+        + guides(color=False, size=False)
+        + theme_minimal() 
+    )
+   
+
+```     
+geom_line is a poor representation of this data. Although it shows the general relationship between exports and imports, it does not account for the third variable in energy and does not differentiate between countries. 
+
+# Task 3
+aesthetics: (x = internet_users, y = gdp, color = four_regions, size = income)
+```{python}
+    #| label: load-data
+    #| echo: true
+    import pandas as pd
+    df = pd.read_csv("Data/q3data.csv")
+    from plotnine import ggplot, aes, geom_point, scale_x_continuous, labs, scale_y_continuous, scale_size_continuous, guides, theme_minimal, geom_text, scale_size_discrete, scale_y_log10
+    year = pd.DataFrame({
+        'x': [50],  
+        'y': [4000],    
+        'text': ['2001'] 
+    })
+    (ggplot(df, aes(x = "internet_users", y = "gdp", color = "four_regions", size = "income"))
+    + geom_point()
+    
+    + geom_text(
+            aes(x='x', y='y', label='text'),
+            data=year,
+            inherit_aes=False, 
+            size=120,           
+            alpha=0.3,         
+            color='gray'      
+        )
+     + scale_x_continuous(
+         breaks=[0, 10, 20, 30, 40, 50, 60, 70, 80, 90],
+         limits=(0, 90)
+     )
+      + scale_y_log10(
+            breaks=[200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000]
+      )
+
+ + labs(x="Individuals using the Internet",y="GDP/Capita",
+        )
+ + scale_size_continuous(range=[2, 12])
+
+       
+        + guides(color=False, size=False)
+        + theme_minimal() 
+    )
+   
+
+```      
+
+```{python}
+    #| label: load-data
+    #| echo: true
+    import pandas as pd
+    df = pd.read_csv("Data/q3data.csv")
+    from plotnine import ggplot, aes, geom_point, scale_x_continuous, labs, scale_y_continuous, scale_size_continuous, guides, theme_minimal, geom_text, scale_size_discrete, scale_y_log10, geom_bin2d 
+    year = pd.DataFrame({
+        'x': [50],  
+        'y': [4000],    
+        'text': ['2001'] 
+    })
+    (ggplot(df, aes(x = "internet_users", y = "gdp"))
+    + geom_bin2d(bins=(20, 20))
+    + geom_text(
+            aes(x='x', y='y', label='text'),
+            data=year,
+            inherit_aes=False, 
+            size=120,           
+            alpha=0.3,         
+            color='gray'      
+        )
+     + scale_x_continuous(
+         breaks=[0, 10, 20, 30, 40, 50, 60, 70, 80, 90],
+         limits=(0, 90)
+     )
+      + scale_y_log10(
+            breaks=[200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000]
+      )
+
+ + labs(x="Individuals using the Internet",y="GDP/Capita",
+        )
+
+        + guides(color=False,size=False)
+        + theme_minimal() 
+    )
+   
+```    
+This square bin density plot(geom_bin2d) is a great way for visualizing this data. It accurately displays the density of the graph as it shows that most countries are within the lower end of gdp and internet usage. The graph also does a good job of displaying the general distribution.
+
+
+
+ 
+
+
+
