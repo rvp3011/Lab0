@@ -1,0 +1,127 @@
+---
+title: "Lab 3"
+fig-height: 3.5
+fig-width: 6
+warning: false
+format:
+  html:
+    code-fold: true
+    code-line-numbers: true
+    embed-resources: true
+---
+<https://github.com/rvp3011/Lab0>
+
+```{python}
+import pandas as pd
+xmas = pd.read_csv("https://www.dropbox.com/scl/fi/qxaslqqp5p08i1650rpc4/xmas.csv?rlkey=erdxi7jbh7pqf9fh4lv4cayp5&dl=1")
+
+def pluralize_gift(gift):
+    if isinstance(gift, pd.Series):
+        return gift.apply(pluralize_gift) 
+
+    if gift.find("oo") != -1:
+        gift = gift.replace("oo", "ee")
+    elif gift[-1] == "y":
+        gift = gift[:-1] + "ies"
+    else:
+        gift = gift + "s"
+
+    return gift
+
+#pluralize_gift("goose")
+pluralize_gift(xmas['Gift.Item'])
+```
+
+
+```{python}
+def make_phrase(num, num_word, item, verb, adjective, location):
+    verb = "" if pd.isna(verb) else verb
+    adjective = "" if pd.isna(adjective) else adjective
+    location = "" if pd.isna(location) else location
+
+    noun = pluralize_gift(item) if num > 1 else item
+
+    vowel = item[0].lower() in "aeiou"
+
+    qty = ("an" if vowel else "a") if num == 1 else num_word
+
+    pieces = [qty, adjective, noun, verb, location]
+    phrase = " ".join(p for p in pieces if p).strip()
+
+    return phrase
+
+make_phrase(10, "ten", "lord", "a-leaping", "", "")
+```
+
+```{python}
+num_list = {
+    1:"one", 2:"two", 3:"three", 4:"four", 5:"five", 6:"six",
+    7:"seven", 8:"eight", 9:"nine", 10:"ten", 11:"eleven", 12:"twelve"
+}
+xmas["Num.Word"] = xmas["Day"].map(num_list)
+xmas["Full.Phrase"] = xmas.apply(
+    lambda r: make_phrase(r["Day"], r["Num.Word"], r["Gift.Item"], r["Verb"], r["Adjective"], r["Location"]), 
+    axis=1
+)
+def space(s: str) -> str:
+    return " ".join(str(s).split())
+
+xmas
+
+```
+
+```{python}
+def sing_day(dataset, num, phrase_col):
+    days_list = {1:"first",2:"second",3:"third",4:"fourth",5:"fifth",6:"sixth",
+                   7:"seventh",8:"eighth",9:"ninth",10:"tenth",11:"eleventh",12:"twelfth"}
+    num_word = days_list[num]
+    intro = f"On the {num_word} day of Christmas, my true love sent to me:"
+    gifts = ""
+    for i in range(num, 0, -1):
+        line = dataset.loc[dataset["Day"] == i, phrase_col].iloc[0]
+        line = space(line) 
+        
+        if num == 1:
+            line = line + "."
+        else:
+            if i == 1:
+                line = line + "."
+            elif i == 2:
+                line = line + ", and"
+            else:
+                line = line + ","
+
+        gifts = gifts + ("" if gifts == "" else "\n") + line
+
+    return intro + "\n" + gifts
+
+sing_day(xmas, 3, "Full.Phrase")
+
+
+```
+
+```{python}
+xmas2 = pd.read_csv("https://www.dropbox.com/scl/fi/p9x9k8xwuzs9rhp582vfy/xmas_2.csv?rlkey=kvc3j3lmyn4opcidsrhcmrof1&dl=1")
+
+days = pd.Series(range(1, int(xmas["Day"].max()) + 1))
+print("\n\n".join(days.map(lambda d: sing_day(xmas, int(d), "Full.Phrase"))))
+
+```
+
+```{python}
+xmas2[["Verb","Adjective","Location"]] = xmas2[["Verb","Adjective","Location"]].fillna("")
+num_list = {
+    1:"one", 2:"two", 3:"three", 4:"four", 5:"five", 6:"six",
+    7:"seven", 8:"eight", 9:"nine", 10:"ten", 11:"eleven", 12:"twelve"
+}
+
+xmas2["Num.Word"] = xmas2["Day"].map(num_list)
+xmas2["Full.Phrase"] = xmas2.apply(
+    lambda r: make_phrase(r["Day"], r["Num.Word"], r["Gift.Item"], r["Verb"], r["Adjective"], r["Location"]),
+    axis=1
+)
+
+days = pd.Series(range(1, int(xmas2["Day"].max()) + 1))
+print("\n\n".join(days.map(lambda d: sing_day(xmas2, int(d), "Full.Phrase"))))
+
+```
