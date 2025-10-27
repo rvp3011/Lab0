@@ -1,0 +1,206 @@
+---
+title: "Lab 4"
+fig-height: 3.5
+fig-width: 6
+warning: false
+format:
+  html:
+    code-fold: true
+    code-line-numbers: true
+    embed-resources: true
+---
+<https://github.com/rvp3011/Lab0>
+```{python}
+import pandas as pd
+import requests
+from bs4 import BeautifulSoup
+import re
+
+url = "https://tastesbetterfromscratch.com/meal-plan-210/"
+header = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+}
+
+html = requests.get(url, headers=header)
+soup = BeautifulSoup(html.text, "html.parser")
+
+paragraph = soup.find_all("p", class_="has-text-align-left")
+
+data = []
+
+for tag in paragraph:
+    day_info = tag.find("strong")
+    recipe_info = tag.find("a")
+
+    if day_info and recipe_info:
+        weekday = day_info.get_text(strip=True)
+        recipe_title = recipe_info.get_text(strip=True)
+        recipe_url = recipe_info.get("href")
+
+        text_line = tag.get_text(" ", strip=True)
+        cost = ""
+        for token in text_line.split():
+            if "$" in token:
+                cost = token
+                break
+
+        data.append([weekday, recipe_title, recipe_url, cost])
+
+meal_df = pd.DataFrame(
+    data,
+    columns=["Weekday", "Recipe Title", "Recipe URL", "Cost"]
+)
+
+meal_df
+
+```
+```{python}
+
+
+api_url = "https://tasty.p.rapidapi.com/recipes/list"
+api_headers = {
+    "X-RapidAPI-Key": "294c393f84mshfc40f156607eabcp14339djsn369a9dadf36a",
+    "X-RapidAPI-Host": "tasty.p.rapidapi.com"
+}
+
+recipe = "Biscuit Chicken Pot Pie"
+
+def clean_query(text):
+    text = text.lower()
+    text = re.sub(r"[^a-z0-9\s]", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+
+query_text = clean_query(recipe)
+query_params = {"from": "0", "size": "100", "q": query_text}
+
+response = requests.get(api_url, headers=api_headers, params=query_params)
+json_data = response.json()
+recipe_list = json_data.get("results", [])
+
+keywords = query_text.split()
+matched = [
+    item for item in recipe_list
+    if item.get("name") and any(k in item["name"].lower() for k in keywords)
+]
+
+recipe_n = [item["name"] for item in matched]
+
+recipes_df = pd.DataFrame(recipe_n, columns=["Recipe Name"])
+
+recipes_df
+
+```
+
+```{python}
+
+
+def get_weekly_plan(week_number):
+    url = f"https://tastesbetterfromscratch.com/meal-plan-{week_number}/"
+    header = {"User-Agent": "Mozilla/5.0"}
+    response = requests.get(url, headers=header)
+    soup = BeautifulSoup(response.text, "html.parser")
+
+    paragraphs = soup.find_all("p", class_="has-text-align-left")
+    data = []
+
+    for p in paragraphs:
+        day = p.find("strong")
+        link = p.find("a")
+        if day and link:
+            day_name = day.get_text(strip=True)
+            recipe_name = link.get_text(strip=True)
+            recipe_url = link.get("href")
+            data.append([day_name, recipe_name, recipe_url])
+    return pd.DataFrame(data, columns=["Day", "Recipe", "URL"])
+
+def match_recipe(recipe_name):
+    api_url = "https://tasty.p.rapidapi.com/recipes/list"
+    api_headers = {
+        "X-RapidAPI-Key": "294c393f84mshfc40f156607eabcp14339djsn369a9dadf36a",
+        "X-RapidAPI-Host": "tasty.p.rapidapi.com"
+    }
+
+    cleaned = re.sub(r"[^a-zA-Z0-9\s]", "", recipe_name)
+    params = {"from": "0", "size": "50", "q": cleaned}
+    response = requests.get(api_url, headers=api_headers, params=params)
+
+    try:
+        results = response.json().get("results", [])
+    except:
+        results = []
+
+    if results:
+        top = results[0]
+        nutrition = top.get("nutrition", {})
+        return {
+            "Matched Recipe": top.get("name"),
+            "Tasty URL": f"https://tasty.co/recipe/{top.get('slug', '')}",
+            "Calories": nutrition.get("calories"),
+            "Protein": nutrition.get("protein"),
+            "Fat": nutrition.get("fat"),
+            "Carbs": nutrition.get("carbohydrates")
+        }
+    else:
+        return {
+            "Matched Recipe": None,
+            "Tasty URL": None,
+            "Calories": None,
+            "Protein": None,
+            "Fat": None,
+            "Carbs": None
+        }
+
+def get_mealplan_data(week_number):
+    plan_df = get_weekly_plan(week_number)
+    matched_data = []
+
+    for _, row in plan_df.iterrows():
+        match_info = match_recipe(row["Recipe"])
+        merged = {**row.to_dict(), **match_info}
+        matched_data.append(merged)
+
+    return pd.DataFrame(matched_data)
+
+meats = [
+    "chicken", "beef", "pork", "bacon", "ham", "sausage",
+    "turkey", "lamb", "fish", "shrimp", "salmon", "steak", "meatball"
+]
+
+def is_vegetarian(name):
+    if not isinstance(name, str):
+        return True
+    name_lower = name.lower()
+    return not any(meat in name_lower for meat in meats)
+
+df = get_mealplan_data(202)
+df["Vegetarian"] = df["Recipe"].apply(is_vegetarian)
+
+df
+```
+
+```{python}
+from plotnine import ggplot, aes, geom_bar, facet_wrap, labs, theme, element_text
+
+df_long = df.melt(
+    id_vars=["Day", "Recipe", "Vegetarian"],
+    value_vars=["Calories", "Protein", "Fat", "Carbs"],
+    var_name="Nutrient",
+    value_name="Amount"
+)
+
+(
+    ggplot(df_long, aes(x="Day", y="Amount", fill="Vegetarian"))
+    + geom_bar(stat="identity", position="dodge")
+    + facet_wrap("~Nutrient", scales="free_y")
+    + labs(
+        title="Nutritional Breakdown",
+        x="Day",
+        y="Amount"
+    )
+   
+    + theme(axis_text_x=element_text(rotation=45, hjust=1))
+)
+
+
+```
