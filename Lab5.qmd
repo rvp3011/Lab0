@@ -1,0 +1,398 @@
+---
+title: "Lab 5"
+fig-height: 3.5
+fig-width: 6
+warning: false
+format:
+  html:
+    code-fold: true
+    code-line-numbers: true
+    embed-resources: true
+---
+<https://github.com/rvp3011/Lab0>
+```{python}
+import pandas as pd
+import numpy as np
+from plotnine import *
+df = pd.read_csv("insurance_costs_1.csv")
+print(df.describe())
+df.info()
+
+#df.head()
+```
+
+
+
+
+# 2. The data looks fine, as it shows above there are no nulls. I will dummify the sex and smoker variables later when I create the first model. 
+
+```{python}
+( 
+    ggplot(df, aes(x="age", y="bmi"))
++ geom_point(alpha=0.6)
++labs(
+   title = "Charges by BMI",
+   x = "BMI",
+   y = "Charges $"
+)
++ theme_minimal()
+)
+
+
+```
+# This is a scatterplot that shows the correlation between BMI and health insurance charges. As the graph displays it seems as there is little to no correlation between our predictor BMI and our response insurance charges.
+
+```{python}
+
+(
+    ggplot(df, aes(x="smoker", y="charges", fill="smoker")) +
+    geom_boxplot() +
+    labs(
+        title="Charges by Smoker Status",
+        x="Smoker",
+        y="Charges $"
+    ) +
+    theme_minimal()
+)
+```
+# This is a boxplot that shows the relationship between smoker status and health insurance charges. As the graph displays it seems as there is quite a large difference in median charges considering someoenes smoking status.
+
+```{python}
+
+(
+    ggplot(df, aes(x="sex", y="charges", fill="sex")) +
+    geom_boxplot() +
+    labs(
+        title="Charges by Sex",
+        x="Sex",
+        y="Charges $"
+    ) +
+    theme_minimal()
+)
+```
+# This is a boxplot that shows the relationship between gender and health insurance charges. As the graph displays it seems as there is a very slight difference in median charges when considering gender.
+
+# Part Two: Simple Linear Models
+
+
+# 1
+```{python}
+df = pd.get_dummies(df, columns=["sex", "smoker"], drop_first=True)
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.preprocessing import PolynomialFeatures
+x = df[["age"]]
+y = df["charges"]
+x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=0)
+model = LinearRegression()
+model.fit(x_train, y_train)
+y_pred = model.predict(x_test)
+mse = mean_squared_error(y_test, y_pred)
+r2  = r2_score(y_test, y_pred)
+coef = model.coef_[0]
+intercept = model.intercept_
+print("age =",coef)
+print("intercept =",intercept)
+print("r2 =",r2)
+print("mse =",mse)
+```
+# The model fit is not great the r2 value is low and the mse value is high. The insurance cost increases by 209 dollars as age increases by 1 year. 
+
+# Model 2
+```{python}
+x = df[["age", "sex_male"]]
+y = df["charges"]
+x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=0)
+model = LinearRegression()
+model.fit(x_train, y_train)
+y_pred = model.predict(x_test)
+mse = mean_squared_error(y_test, y_pred)
+r2  = r2_score(y_test, y_pred)
+coef = model.coef_[0]
+coef1 = model.coef_[1]
+intercept = model.intercept_
+print("age =",coef)
+print("sex =",coef1)
+print("intercept =",intercept)
+print("r2 =",r2)
+print("mse =",mse)
+```
+# The model fit is not great the r2 value is low and the mse value is high. The insurance cost increases by 207 dollars as age increases by 1 year. The insurance cost increases by 1051 dollars if sex is male.
+
+
+# 2
+
+```{python}
+x = df[["age", "smoker_yes"]]
+y = df["charges"]
+x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=0)
+model = LinearRegression()
+model.fit(x_train, y_train)
+y_pred = model.predict(x_test)
+mse = mean_squared_error(y_test, y_pred)
+r2  = r2_score(y_test, y_pred)
+coef = model.coef_[0]
+coef1 = model.coef_[1]
+intercept = model.intercept_
+print("age =",coef)
+print("smoke =",coef1)
+print("intercept =",intercept)
+print("r2 =",r2)
+print("mse =",mse)
+```
+# Model 3 fit is quite good the r2 value is high and the mse value is low. If the person is a smoker cost increases by 24860. The insurance cost increases by 259 dollars as age increases by 1 year.
+
+# 3
+
+# Model 3 better fits the data. As the results show Model 3 has both a higher r squared value and also has lower mean squared error than Model 2.
+
+
+# Part Three: Multiple Linear Models
+
+# 1
+```{python}
+x = df[["age", "bmi"]]
+y = df["charges"]
+x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=0)
+model = LinearRegression()
+model.fit(x_train, y_train)
+y_pred = model.predict(x_test)
+mse = mean_squared_error(y_test, y_pred)
+r2  = r2_score(y_test, y_pred)
+coef = model.coef_[0]
+coef1 = model.coef_[1]
+intercept = model.intercept_
+print("age =",coef)
+print("bmi =",coef1)
+print("intercept =",intercept)
+print("r2 =",r2)
+print("mse =",mse)
+```
+# The MSE is lower and the R2 is higher in this model compared to part 2 question 1.
+
+
+# 2
+```{python}
+df["age_2"] = df["age"] ** 2
+x = df[["age", "age_2"]]
+y = df["charges"]
+x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=0)
+model = LinearRegression()
+model.fit(x_train, y_train)
+y_pred = model.predict(x_test)
+mse = mean_squared_error(y_test, y_pred)
+r2  = r2_score(y_test, y_pred)
+coef = model.coef_[0]
+coef1 = model.coef_[1]
+intercept = model.intercept_
+print("age =",coef)
+print("age^2 =",coef1)
+print("intercept =",intercept)
+print("r2 =",r2)
+print("mse =",mse)
+```
+# The MSE is lower and the R2 is higher in this model compared to part 2 question 1.
+
+# 3
+
+```{python}
+x = df[["age"]]
+y = df["charges"]
+poly = PolynomialFeatures(degree=4, include_bias=False)
+x_4 = poly.fit_transform(x)
+x_train, x_test, y_train, y_test = train_test_split(x_4, y, test_size=0.2, random_state=0)
+model = LinearRegression()
+model.fit(x_train, y_train)
+y_pred = model.predict(x_test)
+mse = mean_squared_error(y_test, y_pred)
+r2  = r2_score(y_test, y_pred)
+coef = model.coef_[3]
+intercept = model.intercept_
+print("age^4 =",coef)
+print("intercept =",intercept)
+print("r2 =",r2)
+print("mse =",mse)
+```
+# The MSE is higher and the R2 is lower in this model compared to part 2 question 1.
+
+# 5. According to the MSE and R-squared, which is the best model? Do you agree that this is indeed the “best” model? Why or why not?
+
+# The best model was the model from question 1. I agree that it is the best model out of the group because it's using two relevant variables and isn't a polynomial. 
+
+
+# 4
+```{python}
+x = df[["age"]]
+y = df["charges"]
+poly = PolynomialFeatures(degree=12, include_bias=False)
+x_12 = poly.fit_transform(x)
+x_train, x_test, y_train, y_test = train_test_split(x_12, y, test_size=0.2, random_state=0)
+model = LinearRegression()
+model.fit(x_train, y_train)
+y_pred = model.predict(x_test)
+mse = mean_squared_error(y_test, y_pred)
+r2  = r2_score(y_test, y_pred)
+coef = model.coef_[11]
+intercept = model.intercept_
+print("age^12 =",coef)
+print("intercept =",intercept)
+print("r2 =",r2)
+print("mse =",mse)
+
+age_grid = np.linspace(df["age"].min(), df["age"].max(), 200).reshape(-1, 1)
+age_12 = poly.transform(age_grid)
+y_fit = model.predict(age_12)
+plot_df = pd.DataFrame({"age": age_grid.flatten(), "fitted": y_fit})
+(
+ggplot(df, aes(x="age", y="charges"))
+    + geom_point(alpha=0.5)                                 
+    + geom_line(plot_df, aes(x="age", y="fitted"), size=1)  
+    + labs(title="Degree 12 Polynomial",
+           x="Age", y="Charges $")
+    + theme_minimal()
+    )
+
+
+```
+# The MSE is higher and the R2 is lower in this model compared to part 2 question 1.
+
+
+# 4 New Data
+
+# 1
+```{python}
+df_new = pd.read_csv("insurance_costs_2.csv")
+df_new = pd.get_dummies(df_new, columns=["sex", "smoker"], drop_first=True)
+x = df[["age"]]
+y = df["charges"]
+x_train, x_test, y_train, y_test = train_test_split(x, y)
+model = LinearRegression()
+model.fit(x_train, y_train)
+x_new = df_new[["age"]]
+y_pred = model.predict(x_new)
+mse = mean_squared_error(df_new["charges"], y_pred)
+r2 = r2_score(df_new["charges"], y_pred)
+print("r2 =",r2)
+print("mse =",mse)
+```
+
+# 2
+```{python}
+x = df[["age", "bmi"]]
+y = df["charges"]
+x_train, x_test, y_train, y_test = train_test_split(x, y)
+model = LinearRegression()
+model.fit(x_train, y_train)
+x_new = df_new[["age", "bmi"]]
+y_pred = model.predict(x_new)
+mse = mean_squared_error(df_new["charges"], y_pred)
+r2 = r2_score(df_new["charges"], y_pred)
+print("r2 =",r2)
+print("mse =",mse)
+```
+
+
+# 3
+```{python}
+x = df[["age", "bmi", "smoker_yes"]]
+y = df["charges"]
+x_train, x_test, y_train, y_test = train_test_split(x, y)
+model = LinearRegression()
+model.fit(x_train, y_train)
+x_new = df_new[["age", "bmi","smoker_yes"]]
+y_pred = model.predict(x_new)
+mse = mean_squared_error(df_new["charges"], y_pred)
+r2 = r2_score(df_new["charges"], y_pred)
+print("r2 =",r2)
+print("mse =",mse)
+```
+
+# 4
+```{python}
+df["age_smoker"] = df["age"] * df["smoker_yes"]
+df["bmi_smoker"] = df["bmi"] * df["smoker_yes"]
+df_new["age_smoker"] = df_new["age"] * df_new["smoker_yes"]
+df_new["bmi_smoker"] = df_new["bmi"] * df_new["smoker_yes"]
+
+x = df[["age_smoker", "bmi_smoker"]]
+y = df["charges"]
+x_train, x_test, y_train, y_test = train_test_split(x, y)
+model = LinearRegression()
+model.fit(x_train, y_train)
+x_new = df_new[["age_smoker", "bmi_smoker"]]
+y_pred = model.predict(x_new)
+mse = mean_squared_error(df_new["charges"], y_pred)
+r2 = r2_score(df_new["charges"], y_pred)
+print("r2 =",r2)
+print("mse =",mse)
+```
+
+# 5
+```{python}
+x = df[["age", "bmi", "smoker_yes", "age_smoker", "bmi_smoker"]]
+y = df["charges"]
+x_train, x_test, y_train, y_test = train_test_split(x, y)
+model = LinearRegression()
+model.fit(x_train, y_train)
+x_new = df_new[["age", "bmi", "smoker_yes","age_smoker", "bmi_smoker"]]
+y_pred = model.predict(x_new)
+mse = mean_squared_error(df_new["charges"], y_pred)
+r2 = r2_score(df_new["charges"], y_pred)
+print("r2 =",r2)
+print("mse =",mse)
+```
+
+# 6(Based on the R2 and mse the best model is the one with Age, BMI, and Smoker with interaction)
+```{python}
+x = df[["age", "bmi", "smoker_yes", "age_smoker", "bmi_smoker"]]
+y = df["charges"]
+model = LinearRegression()
+model.fit(x, y)
+y_hat = model.predict(x)
+resid = y - y_hat
+plot_df = pd.DataFrame({"fitted": y_hat, "resid": resid,"smoker_yes": x["smoker_yes"]})
+(
+ggplot(plot_df, aes(x="fitted", y="resid"))
++ geom_point(alpha=0.5)
++ geom_hline(yintercept=0, linetype="dashed")
++ labs(title="Age, BMI, Smoker Interaction Residuals", x="Fitted", y="Residuals")
++ theme_minimal()
+)
+```
+
+# Part Five: Full Exploration
+
+```{python}
+df = pd.get_dummies(df, columns=["region"], drop_first=True)
+df_new = pd.get_dummies(df_new, columns=["region"], drop_first=True)
+
+x = df[["age", "bmi", "smoker_yes", "age_smoker", "bmi_smoker", "region_northwest", "region_southeast", "region_southwest"]]
+y = df["charges"]
+x_train, x_test, y_train, y_test = train_test_split(x, y)
+model = LinearRegression()
+model.fit(x_train, y_train)
+x_new = df_new[["age", "bmi", "smoker_yes", "age_smoker", "bmi_smoker", "region_northwest", "region_southeast", "region_southwest"]]
+y_pred = model.predict(x_new)
+mse = mean_squared_error(df_new["charges"], y_pred)
+r2 = r2_score(df_new["charges"], y_pred)
+print("r2 =",r2)
+print("mse =",mse)
+
+
+resid = df_new["charges"] - y_pred
+plot_df = pd.DataFrame({"fitted": y_pred, "resid": resid})
+
+(ggplot(plot_df, aes(x="fitted", y="resid"))
+    + geom_point(alpha=0.5)
+    + geom_hline(yintercept=0, linetype="dashed")
+    + labs(
+        title="Residuals Final Model",
+        x="Fitted",
+        y="Residuals"
+    )
+    + theme_minimal()
+)
+```
+
+
