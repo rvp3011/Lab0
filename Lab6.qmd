@@ -1,0 +1,707 @@
+---
+title: "Lab 6"
+author: "Raghav Pradeep"
+format: 
+  html:
+    code-fold: true
+    code-line-numbers: true
+    code-tools: true
+    self-contained: true
+execute:
+  message: false
+  echo: false
+  eval: true
+---
+<https://github.com/rvp3011/Lab0>
+
+```{python}
+import pandas as pd
+import numpy as np
+from sklearn.pipeline import Pipeline
+from sklearn.compose import make_column_selector, ColumnTransformer
+from sklearn.preprocessing import StandardScaler, OneHotEncoder, PolynomialFeatures
+from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet
+from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.metrics import r2_score
+from sklearn.compose import make_column_selector as selector
+from sklearn.model_selection import GridSearchCV, cross_val_score
+df = pd.read_csv("Hitters.csv")
+df.info()
+df = pd.get_dummies(df, columns=['League', 'Division', 'NewLeague'], drop_first=True)
+df = df.dropna()
+```
+
+# A. Regression without regularization
+
+```{python}
+X = df.drop('Salary', axis=1)
+y = df['Salary']
+num = selector(dtype_include=['number'])
+cat = selector(dtype_include=['object','category','bool'])
+ct = ColumnTransformer(
+ [
+    ('num', StandardScaler(), num),            
+    ('cat', OneHotEncoder(drop='first'), cat)  
+], remainder='passthrough') 
+
+pipe_lr = Pipeline([
+    ('preprocessing', ct),
+    ('linear_regression', LinearRegression())
+])
+
+pipe_lr.fit(X, y)
+pre = pipe_lr.named_steps['preprocessing']        
+lr  = pipe_lr.named_steps['linear_regression']  
+
+
+feature_names = pre.get_feature_names_out()   
+
+coef_df = pd.DataFrame({
+    'feature': feature_names,
+    'coef': lr.coef_
+})
+coef_df['abs_coef'] = coef_df['coef'].abs()
+print(coef_df.sort_values('abs_coef', ascending=False))
+scores = cross_val_score(pipe_lr, X, y, cv=5, scoring='neg_mean_squared_error')
+print("MSE =", scores.mean())
+```
+Interpret Coeff: A standard deviation increase of one of Career Runs leads to an increase of salary of about 480,000. A standard deviation increase of one of number of career at bats leads to a decrease of salary of about 391,000. A standard deviation increase of one of number of hits in 1986 leads to an increase of salary of about 338,000.
+
+# B. Ridge regression
+
+```{python}
+X = df.drop('Salary', axis=1)
+y = df['Salary']
+num = selector(dtype_include=['number'])
+cat = selector(dtype_include=['object','category','bool'])
+ct = ColumnTransformer(
+ [
+    ('num', StandardScaler(), num),            
+    ('cat', OneHotEncoder(drop='first'), cat)  
+], remainder='passthrough') 
+
+pipe_ridge = Pipeline([
+    ('preprocessing', ct),
+    ("ridge_regression", Ridge())
+])
+
+param_grid = {'ridge_regression__alpha': [0.001, 0.01, 0.1, 1, 10, 100, 1000]}
+gscv = GridSearchCV(pipe_ridge, param_grid, cv=5, scoring='neg_mean_squared_error')
+gscv_fitted = gscv.fit(X, y)
+ridge_pipe = gscv_fitted.best_estimator_ 
+pre = ridge_pipe.named_steps['preprocessing']        
+lr  = ridge_pipe.named_steps['ridge_regression']  
+
+
+feature_names = pre.get_feature_names_out()   
+
+coef_df = pd.DataFrame({
+    'feature': feature_names,
+    'coef': lr.coef_
+})
+coef_df['abs_coef'] = coef_df['coef'].abs()
+print(coef_df.sort_values('abs_coef', ascending=False))
+df_cv_results_ = pd.DataFrame(gscv_fitted.cv_results_)
+df_cv_results_
+
+```
+Interpret Coeff: A standard deviation increase of one of Career Runs leads to an increase of salary of about 321,000. A standard deviation increase of one of number of career at bats leads to a decrease of salary of about 271,000. A standard deviation increase of one of number of hits in 1986 leads to an increase of salary of about 297,000.
+
+MSE: -119034.332720
+
+# C. Lasso Regression
+
+```{python}
+
+X = df.drop('Salary', axis=1)
+y = df['Salary']
+num = selector(dtype_include=['number'])
+cat = selector(dtype_include=['object','category','bool'])
+ct = ColumnTransformer(
+ [
+    ('num', StandardScaler(), num),            
+    ('cat', OneHotEncoder(drop='first'), cat)  
+], remainder='passthrough') 
+
+pipe_lasso = Pipeline([
+    ('preprocessing', ct),
+    ("lasso_regression", Lasso(max_iter=10000))
+])
+
+param_grid = {'lasso_regression__alpha': [0.001, 0.01, 0.1, 1, 10, 100, 1000]}
+gscv = GridSearchCV(pipe_lasso, param_grid, cv=5, scoring='neg_mean_squared_error')
+gscv_fitted = gscv.fit(X, y)
+lasso_pipe = gscv_fitted.best_estimator_ 
+pre = lasso_pipe.named_steps['preprocessing']        
+lr  = lasso_pipe.named_steps['lasso_regression']  
+
+
+feature_names = pre.get_feature_names_out()   
+
+coef_df = pd.DataFrame({
+    'feature': feature_names,
+    'coef': lr.coef_
+})
+coef_df['abs_coef'] = coef_df['coef'].abs()
+print(coef_df.sort_values('abs_coef', ascending=False))
+df_cv_results_ = pd.DataFrame(gscv_fitted.cv_results_)
+df_cv_results_
+```
+Interpret Coeff: A standard deviation increase of one of Career Runs leads to an increase of salary of about 375,000. A standard deviation increase of one of number of career at bats leads to a decrease of salary of about 282,000. A standard deviation increase of one of number of hits in 1986 leads to an increase of salary of about 304,000.
+
+MSE:-119758.227815
+
+
+# D. Elastic Net
+```{python}
+
+X = df.drop('Salary', axis=1)
+y = df['Salary']
+num = selector(dtype_include=['number'])
+cat = selector(dtype_include=['object','category','bool'])
+ct = ColumnTransformer(
+ [
+    ('num', StandardScaler(), num),            
+    ('cat', OneHotEncoder(drop='first'), cat)  
+], remainder='passthrough') 
+
+pipe_elastic = Pipeline([
+    ('preprocessing', ct),
+    ("elastic_regression", ElasticNet(max_iter=10000))
+])
+
+param_grid = {
+    "elastic_regression__alpha": [0.001, 0.01, 0.1, 1, 10, 100, 1000],
+    "elastic_regression__l1_ratio": [0.2, 0.4, 0.6, 0.8, 1.0],
+}
+gscv = GridSearchCV(pipe_elastic, param_grid, cv=5, scoring='neg_mean_squared_error')
+gscv_fitted = gscv.fit(X, y)
+pipe_elastic = gscv_fitted.best_estimator_ 
+pre = pipe_elastic.named_steps['preprocessing']        
+lr  = pipe_elastic.named_steps['elastic_regression']  
+
+
+feature_names = pre.get_feature_names_out()   
+
+coef_df = pd.DataFrame({
+    'feature': feature_names,
+    'coef': lr.coef_
+})
+coef_df['abs_coef'] = coef_df['coef'].abs()
+print(coef_df.sort_values('abs_coef', ascending=False))
+df_cv_results_ = pd.DataFrame(gscv_fitted.cv_results_)
+df_cv_results_
+```
+Interpret Coeff: A standard deviation increase of one of Career Runs leads to an increase of salary of about 164,000. A standard deviation increase of one of number of career at bats leads to a decrease of salary of about 186,000. A standard deviation increase of one of number of hits in 1986 leads to an increase of salary of about 201,000.
+
+MSE:-118750.208964
+
+# Part II. Variable Selection
+
+Based on the Elastic Net Model which had the lowest mse.
+
+Which numeric variable is most important = Hits
+
+Which five numeric variables are most important = CRuns, CHits, Hits, CWalks, CRBI
+
+Which categorical variable is most important = cat__Division_W_True
+
+# Using only the one best numeric variable
+
+
+# A. Regression without regularization
+```{python}
+
+X = df[['Hits']]
+y = df['Salary']
+
+ct = ColumnTransformer(
+    [('num', StandardScaler(), ['Hits'])],
+    remainder='drop'
+)
+
+pipe_lr = Pipeline([
+    ('preprocessing', ct),
+    ('linear_regression', LinearRegression())
+])
+
+pipe_lr.fit(X, y)
+pre = pipe_lr.named_steps['preprocessing']        
+lr  = pipe_lr.named_steps['linear_regression']  
+
+
+feature_names = pre.get_feature_names_out()   
+
+coef_df = pd.DataFrame({
+    'feature': feature_names,
+    'coef': lr.coef_
+})
+coef_df['abs_coef'] = coef_df['coef'].abs()
+print(coef_df.sort_values('abs_coef', ascending=False))
+scores = cross_val_score(pipe_lr, X, y, cv=5, scoring='neg_mean_squared_error')
+print("MSE =", scores.mean())
+```
+
+# B. Ridge regression
+
+```{python}
+X = df[['Hits']]
+y = df['Salary']
+
+ct = ColumnTransformer(
+    [('num', StandardScaler(), ['Hits'])],
+    remainder='drop'
+) 
+
+pipe_ridge = Pipeline([
+    ('preprocessing', ct),
+    ("ridge_regression", Ridge())
+])
+
+param_grid = {'ridge_regression__alpha': [0.001, 0.01, 0.1, 1, 10, 100, 1000]}
+gscv = GridSearchCV(pipe_ridge, param_grid, cv=5, scoring='neg_mean_squared_error')
+gscv_fitted = gscv.fit(X, y)
+ridge_pipe = gscv_fitted.best_estimator_ 
+pre = ridge_pipe.named_steps['preprocessing']        
+lr  = ridge_pipe.named_steps['ridge_regression']  
+
+
+feature_names = pre.get_feature_names_out()   
+
+coef_df = pd.DataFrame({
+    'feature': feature_names,
+    'coef': lr.coef_
+})
+coef_df['abs_coef'] = coef_df['coef'].abs()
+print(coef_df.sort_values('abs_coef', ascending=False))
+df_cv_results_ = pd.DataFrame(gscv_fitted.cv_results_)
+df_cv_results_
+
+```
+# C. Lasso Regression
+
+```{python}
+
+X = df[['Hits']]
+y = df['Salary']
+
+ct = ColumnTransformer(
+    [('num', StandardScaler(), ['Hits'])],
+    remainder='drop'
+)
+
+pipe_lasso = Pipeline([
+    ('preprocessing', ct),
+    ("lasso_regression", Lasso())
+])
+
+param_grid = {'lasso_regression__alpha': [0.001, 0.01, 0.1, 1, 10, 100, 1000]}
+gscv = GridSearchCV(pipe_lasso, param_grid, cv=5, scoring='neg_mean_squared_error')
+gscv_fitted = gscv.fit(X, y)
+lasso_pipe = gscv_fitted.best_estimator_ 
+pre = lasso_pipe.named_steps['preprocessing']        
+lr  = lasso_pipe.named_steps['lasso_regression']  
+
+
+feature_names = pre.get_feature_names_out()   
+
+coef_df = pd.DataFrame({
+    'feature': feature_names,
+    'coef': lr.coef_
+})
+coef_df['abs_coef'] = coef_df['coef'].abs()
+print(coef_df.sort_values('abs_coef', ascending=False))
+df_cv_results_ = pd.DataFrame(gscv_fitted.cv_results_)
+df_cv_results_
+```
+
+# D. Elastic Net
+```{python}
+
+X = df[['Hits']]
+y = df['Salary']
+
+ct = ColumnTransformer(
+    [('num', StandardScaler(), ['Hits'])],
+    remainder='drop'
+)
+pipe_elastic = Pipeline([
+    ('preprocessing', ct),
+    ("elastic_regression", ElasticNet())
+])
+
+param_grid = {
+    "elastic_regression__alpha": [0.001, 0.01, 0.1, 1, 10, 100, 1000],
+    "elastic_regression__l1_ratio": [0.2, 0.4, 0.6, 0.8, 1.0],
+}
+gscv = GridSearchCV(pipe_elastic, param_grid, cv=5, scoring='neg_mean_squared_error')
+gscv_fitted = gscv.fit(X, y)
+pipe_elastic = gscv_fitted.best_estimator_ 
+pre = pipe_elastic.named_steps['preprocessing']        
+lr  = pipe_elastic.named_steps['elastic_regression']  
+
+
+feature_names = pre.get_feature_names_out()   
+
+coef_df = pd.DataFrame({
+    'feature': feature_names,
+    'coef': lr.coef_
+})
+coef_df['abs_coef'] = coef_df['coef'].abs()
+print(coef_df.sort_values('abs_coef', ascending=False))
+df_cv_results_ = pd.DataFrame(gscv_fitted.cv_results_)
+df_cv_results_
+```
+
+# Using only the five best variables.
+
+# A. Regression without regularization
+```{python}
+
+X = df[['Hits', 'AtBat', 'CRuns', 'CWalks', 'Division_W']]
+y = df['Salary']
+num = ['Hits', 'AtBat', 'CRuns', 'CWalks']
+cat = ['Division_W']
+
+ct = ColumnTransformer(
+    [('num', StandardScaler(),  num),
+     ('cat', 'passthrough', cat),
+     ],
+remainder='drop'
+)
+
+pipe_lr = Pipeline([
+    ('preprocessing', ct),
+    ('linear_regression', LinearRegression())
+])
+
+pipe_lr.fit(X, y)
+pre = pipe_lr.named_steps['preprocessing']        
+lr  = pipe_lr.named_steps['linear_regression']  
+
+
+feature_names = pre.get_feature_names_out()   
+
+coef_df = pd.DataFrame({
+    'feature': feature_names,
+    'coef': lr.coef_
+})
+coef_df['abs_coef'] = coef_df['coef'].abs()
+print(coef_df.sort_values('abs_coef', ascending=False))
+scores = cross_val_score(pipe_lr, X, y, cv=5, scoring='neg_mean_squared_error')
+print("MSE =", scores.mean())
+```
+
+# B. Ridge regression
+
+```{python}
+X = df[['Hits', 'AtBat', 'CRuns', 'CWalks', 'Division_W']]
+y = df['Salary']
+num = ['Hits', 'AtBat', 'CRuns', 'CWalks']
+cat = ['Division_W']
+
+ct = ColumnTransformer(
+    [('num', StandardScaler(),  num),
+     ('cat', 'passthrough', cat),
+     ],
+remainder='drop'
+)
+
+pipe_ridge = Pipeline([
+    ('preprocessing', ct),
+    ("ridge_regression", Ridge())
+])
+
+param_grid = {'ridge_regression__alpha': [0.001, 0.01, 0.1, 1, 10, 100, 1000]}
+gscv = GridSearchCV(pipe_ridge, param_grid, cv=5, scoring='neg_mean_squared_error')
+gscv_fitted = gscv.fit(X, y)
+ridge_pipe = gscv_fitted.best_estimator_ 
+pre = ridge_pipe.named_steps['preprocessing']        
+lr  = ridge_pipe.named_steps['ridge_regression']  
+
+
+feature_names = pre.get_feature_names_out()   
+
+coef_df = pd.DataFrame({
+    'feature': feature_names,
+    'coef': lr.coef_
+})
+coef_df['abs_coef'] = coef_df['coef'].abs()
+print(coef_df.sort_values('abs_coef', ascending=False))
+df_cv_results_ = pd.DataFrame(gscv_fitted.cv_results_)
+df_cv_results_
+
+```
+# C. Lasso Regression
+```{python}
+
+X = df[['Hits', 'AtBat', 'CRuns', 'CWalks', 'Division_W']]
+y = df['Salary']
+num = ['Hits', 'AtBat', 'CRuns', 'CWalks']
+cat = ['Division_W']
+
+ct = ColumnTransformer(
+    [('num', StandardScaler(),  num),
+     ('cat', 'passthrough', cat),
+     ],
+remainder='drop'
+)
+
+pipe_lasso = Pipeline([
+    ('preprocessing', ct),
+    ("lasso_regression", Lasso())
+])
+
+param_grid = {'lasso_regression__alpha': [0.001, 0.01, 0.1, 1, 10, 100, 1000]}
+gscv = GridSearchCV(pipe_lasso, param_grid, cv=5, scoring='neg_mean_squared_error')
+gscv_fitted = gscv.fit(X, y)
+lasso_pipe = gscv_fitted.best_estimator_ 
+pre = lasso_pipe.named_steps['preprocessing']        
+lr  = lasso_pipe.named_steps['lasso_regression']  
+
+
+feature_names = pre.get_feature_names_out()   
+
+coef_df = pd.DataFrame({
+    'feature': feature_names,
+    'coef': lr.coef_
+})
+coef_df['abs_coef'] = coef_df['coef'].abs()
+print(coef_df.sort_values('abs_coef', ascending=False))
+df_cv_results_ = pd.DataFrame(gscv_fitted.cv_results_)
+df_cv_results_
+```
+
+# D. Elastic Net
+```{python}
+
+X = df[['Hits', 'AtBat', 'CRuns', 'CWalks', 'Division_W']]
+y = df['Salary']
+num = ['Hits', 'AtBat', 'CRuns', 'CWalks']
+cat = ['Division_W']
+
+ct = ColumnTransformer(
+    [('num', StandardScaler(),  num),
+     ('cat', 'passthrough', cat),
+     ],
+remainder='drop'
+)
+pipe_elastic = Pipeline([
+    ('preprocessing', ct),
+    ("elastic_regression", ElasticNet())
+])
+
+param_grid = {
+    "elastic_regression__alpha": [0.001, 0.01, 0.1, 1, 10, 100, 1000],
+    "elastic_regression__l1_ratio": [0.2, 0.4, 0.6, 0.8, 1.0],
+}
+gscv = GridSearchCV(pipe_elastic, param_grid, cv=5, scoring='neg_mean_squared_error')
+gscv_fitted = gscv.fit(X, y)
+pipe_elastic = gscv_fitted.best_estimator_ 
+pre = pipe_elastic.named_steps['preprocessing']        
+lr  = pipe_elastic.named_steps['elastic_regression']  
+
+
+feature_names = pre.get_feature_names_out()   
+
+coef_df = pd.DataFrame({
+    'feature': feature_names,
+    'coef': lr.coef_
+})
+coef_df['abs_coef'] = coef_df['coef'].abs()
+print(coef_df.sort_values('abs_coef', ascending=False))
+df_cv_results_ = pd.DataFrame(gscv_fitted.cv_results_)
+df_cv_results_
+```
+# Using the five best numeric variables and their interactions with the one best categorical variable.
+
+# A. Regression without regularization
+```{python}
+df["Hits_D"] = df["Hits"] * df["Division_W"]
+df["AtBat_D"] = df["AtBat"] * df["Division_W"]
+df["CRuns_D"] = df["CRuns"] * df["Division_W"]
+df["CWalks_D"] = df["CWalks"] * df["Division_W"]
+df["CRBI_D"] = df["CRBI"] * df["Division_W"]
+
+X = df[['Hits', 'AtBat', 'CRuns', 'CWalks', 'CRBI', 'Hits_D',"AtBat_D","CRuns_D", "CWalks_D", "CRBI_D"]]
+y = df['Salary']
+
+ct = ColumnTransformer([('scale', StandardScaler(), X.columns)], remainder='drop')
+
+pipe_lr = Pipeline([
+    ('preprocessing', ct),
+    ('linear_regression', LinearRegression())
+])
+
+pipe_lr.fit(X, y)
+pre = pipe_lr.named_steps['preprocessing']        
+lr  = pipe_lr.named_steps['linear_regression']  
+
+
+feature_names = pre.get_feature_names_out()   
+
+coef_df = pd.DataFrame({
+    'feature': feature_names,
+    'coef': lr.coef_
+})
+coef_df['abs_coef'] = coef_df['coef'].abs()
+print(coef_df.sort_values('abs_coef', ascending=False))
+scores = cross_val_score(pipe_lr, X, y, cv=5, scoring='neg_mean_squared_error')
+print("MSE =", scores.mean())
+```
+
+# B. Ridge regression
+
+```{python}
+X = df[['Hits', 'AtBat', 'CRuns', 'CWalks', 'CRBI', 'Hits_D',"AtBat_D","CRuns_D", "CWalks_D", "CRBI_D"]]
+y = df['Salary']
+
+ct = ColumnTransformer([('scale', StandardScaler(), X.columns)], remainder='drop')
+
+pipe_ridge = Pipeline([
+    ('preprocessing', ct),
+    ("ridge_regression", Ridge())
+])
+
+param_grid = {'ridge_regression__alpha': [0.001, 0.01, 0.1, 1, 10, 100, 1000]}
+gscv = GridSearchCV(pipe_ridge, param_grid, cv=5, scoring='neg_mean_squared_error')
+gscv_fitted = gscv.fit(X, y)
+ridge_pipe = gscv_fitted.best_estimator_ 
+pre = ridge_pipe.named_steps['preprocessing']        
+lr  = ridge_pipe.named_steps['ridge_regression']  
+
+
+feature_names = pre.get_feature_names_out()   
+
+coef_df = pd.DataFrame({
+    'feature': feature_names,
+    'coef': lr.coef_
+})
+coef_df['abs_coef'] = coef_df['coef'].abs()
+print(coef_df.sort_values('abs_coef', ascending=False))
+df_cv_results_ = pd.DataFrame(gscv_fitted.cv_results_)
+df_cv_results_
+
+```
+
+# C. Lasso Regression
+```{python}
+
+X = df[['Hits', 'AtBat', 'CRuns', 'CWalks', 'CRBI', 'Hits_D',"AtBat_D","CRuns_D", "CWalks_D", "CRBI_D"]]
+y = df['Salary']
+
+ct = ColumnTransformer([('scale', StandardScaler(), X.columns)], remainder='drop')
+
+pipe_lasso = Pipeline([
+    ('preprocessing', ct),
+    ("lasso_regression", Lasso(max_iter=10000))
+])
+
+param_grid = {'lasso_regression__alpha': [0.001, 0.01, 0.1, 1, 10, 100, 1000]}
+gscv = GridSearchCV(pipe_lasso, param_grid, cv=5, scoring='neg_mean_squared_error')
+gscv_fitted = gscv.fit(X, y)
+lasso_pipe = gscv_fitted.best_estimator_ 
+pre = lasso_pipe.named_steps['preprocessing']        
+lr  = lasso_pipe.named_steps['lasso_regression']  
+
+
+feature_names = pre.get_feature_names_out()   
+
+coef_df = pd.DataFrame({
+    'feature': feature_names,
+    'coef': lr.coef_
+})
+coef_df['abs_coef'] = coef_df['coef'].abs()
+print(coef_df.sort_values('abs_coef', ascending=False))
+df_cv_results_ = pd.DataFrame(gscv_fitted.cv_results_)
+df_cv_results_
+```
+
+# D. Elastic Net
+```{python}
+
+X = df[['Hits', 'AtBat', 'CRuns', 'CWalks', 'CRBI', 'Hits_D',"AtBat_D","CRuns_D", "CWalks_D", "CRBI_D"]]
+y = df['Salary']
+
+ct = ColumnTransformer([('scale', StandardScaler(), X.columns)], remainder='drop')
+pipe_elastic = Pipeline([
+    ('preprocessing', ct),
+    ("elastic_regression", ElasticNet(max_iter=10000))
+])
+
+param_grid = {
+    "elastic_regression__alpha": [0.001, 0.01, 0.1, 1, 10, 100, 1000],
+    "elastic_regression__l1_ratio": [0.2, 0.4, 0.6, 0.8, 1.0],
+}
+gscv = GridSearchCV(pipe_elastic, param_grid, cv=5, scoring='neg_mean_squared_error')
+gscv_fitted = gscv.fit(X, y)
+pipe_elastic = gscv_fitted.best_estimator_ 
+pre = pipe_elastic.named_steps['preprocessing']        
+lr  = pipe_elastic.named_steps['elastic_regression']  
+
+
+feature_names = pre.get_feature_names_out()   
+
+coef_df = pd.DataFrame({
+    'feature': feature_names,
+    'coef': lr.coef_
+})
+coef_df['abs_coef'] = coef_df['coef'].abs()
+print(coef_df.sort_values('abs_coef', ascending=False))
+df_cv_results_ = pd.DataFrame(gscv_fitted.cv_results_)
+df_cv_results_
+```
+# The best model was the elastic net model that used the five best numeric variables and their interactions with the one best categorical variable. The MSE was -121439.428880 which was the lowest of all the models.
+
+
+# Part III. Discussion
+
+# A. Ridge
+My Ridge models have less large coefficients than the ordinary regression models, as in both the positive and negative values are less extreme. This makes sense because that is the goal of the ridge regression, it adds a penalty term for large coefficients. The Ridge regression performed better than the linear regression as it reduces overfitting and is better for new data.
+
+# B. LASSO
+I got different lamda values with the value either being 1 or 10, between the models in part 2 and the model in 1. This makes sense because each model has different predictors, adding or getting rid of variables will change which lamda value will decrease the MSE the most. The MSE's were all different among all the different models in 2 and 1. It's the same with MSE too, we have different predictors and models so the results will naturally be different. The models with better predictors will have lower MSE's.
+
+# C. Elastic Net
+The Elastic Net model 'always' wins because it takes elements of both lasso, and ridge, both of those models reduce MSE in their own ways(setting coefficients to zero, penalty for large coefficients) and the Elastic Net model uses both of them. So it is naturally expected for Elastic Net model to "always" have the lowest MSE.
+
+# Part IV: Final Model
+```{python}
+
+X = df[['Hits', 'AtBat', 'CRuns', 'CWalks', 'CRBI', 'Hits_D',"AtBat_D","CRuns_D", "CWalks_D", "CRBI_D"]]
+y = df['Salary']
+
+ct = ColumnTransformer([('scale', StandardScaler(), X.columns)], remainder='drop')
+pipe_elastic = Pipeline([
+    ('preprocessing', ct),
+    ("elastic_regression", ElasticNet(max_iter=10000))
+])
+
+param_grid = {
+    "elastic_regression__alpha": [0.001, 0.01, 0.1, 1, 10, 100, 1000],
+    "elastic_regression__l1_ratio": [0.2, 0.4, 0.6, 0.8, 1.0],
+}
+gscv = GridSearchCV(pipe_elastic, param_grid, cv=5, scoring='neg_mean_squared_error')
+gscv_fitted = gscv.fit(X, y)
+pipe_elastic = gscv_fitted.best_estimator_ 
+
+df_cv_results_ = pd.DataFrame(gscv_fitted.cv_results_)
+#df_cv_results_
+y_pred = gscv_fitted.predict(X)
+target = pd.DataFrame()
+
+target["actual"] = y
+target["predicted"] = y_pred
+
+r2 = r2_score(y, y_pred)
+print("R-squared:", r2)
+
+target
+target.plot.scatter(x = "actual", y = "predicted")
+```
+
+# The Best Model was the model with the five variables Hits, AtBat, CRuns, CWalks, CRBI, and their Interaction with the dummy variable Division_W. The model that used elastic net(which combines the strengths of Lasso, and Ridge) had the lowest MSE value and was therefore the best model. The MSE is -121439.428880, a = 1, I1_ratio = 0.8, and R2 = 0.457.
+
+
+
+
