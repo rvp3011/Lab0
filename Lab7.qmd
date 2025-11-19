@@ -1,0 +1,326 @@
+---
+title: "Lab 7"
+author: "Raghav Pradeep"
+format: 
+  html:
+    code-fold: true
+    code-line-numbers: true
+    code-tools: true
+    self-contained: true
+execute:
+  message: false
+  echo: false
+  eval: true
+---
+<https://github.com/rvp3011/Lab0>
+```{python}
+import pandas as pd
+import numpy as np
+from sklearn.pipeline import Pipeline
+from sklearn.compose import make_column_selector, ColumnTransformer
+from sklearn.preprocessing import StandardScaler, OneHotEncoder, PolynomialFeatures
+from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet
+from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.metrics import r2_score
+from sklearn.compose import make_column_selector as selector
+from sklearn.model_selection import GridSearchCV, cross_val_score, cross_val_predict
+from sklearn.neighbors import KNeighborsRegressor
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.linear_model import LogisticRegression
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.metrics import confusion_matrix
+from sklearn.metrics import roc_curve, roc_auc_score
+import matplotlib.pyplot as plt
+from sklearn.metrics import precision_score, recall_score, ConfusionMatrixDisplay
+from sklearn.metrics import cohen_kappa_score
+import matplotlib.pyplot as plt
+import pandas as pd
+
+df = pd.read_csv("https://www.dropbox.com/s/aohbr6yb9ifmc8w/heart_attack.csv?dl=1")
+df.info()
+df.head()
+```
+# Part One: Fitting Models
+
+# k-Nearest Neighbors
+```{python}
+X_knn = df[['cp', 'age', 'sex', 'thalach']]
+y = df['output']
+pipe_knn = Pipeline([
+    ('scaler', StandardScaler()),
+    ('knn', KNeighborsClassifier())
+])
+
+param_grid = {'knn__n_neighbors': [3, 5, 7, 9, 15, 26]}
+
+grid_knn = GridSearchCV(pipe_knn, param_grid, scoring='roc_auc', cv=5)
+grid_knn.fit(X_knn, y)
+print("Best K:", grid_knn.best_params_)
+print("Best cv ROC AUC:", grid_knn.best_score_)
+best_knn = grid_knn.best_estimator_
+cv_scoreskn = cross_val_predict(best_knn, X_knn, y, cv=5, method="predict_proba")[:, 1]
+cv_probkn  = (cv_scoreskn >= 0.5).astype(int)
+print(confusion_matrix(y, cv_probkn))
+final_knn = best_knn.fit(X_knn, y)
+fpr, tpr, _ = roc_curve(y, cv_probkn)
+plt.figure(figsize=(5,5))
+plt.plot(fpr, tpr)
+plt.xlabel("False Positive Rate")
+plt.ylabel("True Positive Rate")
+plt.title("ROC Curve")
+plt.show()
+```
+
+
+# Logistic
+```{python}
+df["age_chol"] = df["age"] * df["chol"]
+df["age_thalach"] = df["age"] * df["thalach"]
+df["cp_sex"] = df["sex"] * df["cp"]
+df["cp_age"] = df["age"] * df["cp"]
+df["sex_thalach"] = df["sex"] * df["thalach"]
+
+
+X_log = df[['cp', 'age', 'sex', 'thalach', 'trtbps','chol','restecg',"age_thalach","cp_sex"]]
+y = df['output']
+
+pipe_log = Pipeline([
+    ("scaler", StandardScaler()),
+    ("logreg", LogisticRegression(penalty="elasticnet", solver="saga", max_iter=10000))
+])
+
+param_grid={"logreg__C": [0.01, 0.1, 1, 10, 100], "logreg__l1_ratio": [0.25, 0.5, 0.75, 1.0]}
+
+grid_log = GridSearchCV(pipe_log, param_grid, scoring='roc_auc', cv=5)
+grid_log.fit(X_log, y)
+
+print("Log best params:", grid_log.best_params_)
+print("Best cv ROC AUC:", grid_log.best_score_)
+
+best_log = grid_log.best_estimator_
+cv_scoreslog = cross_val_predict(best_log, X_log, y, cv=5, method="predict_proba")[:, 1]
+cv_problog = (cv_scoreslog >= 0.5).astype(int)
+
+print(confusion_matrix(y, cv_problog))
+final_log = best_log.fit(X_log, y)
+coef_tbl = pd.DataFrame({
+    "Feature": X_log.columns,
+    "Coefficient": final_log.named_steps["logreg"].coef_[0]
+}).sort_values("Coefficient", ascending=False)
+print(coef_tbl)
+fpr, tpr, _ = roc_curve(y, cv_problog)
+plt.figure(figsize=(5,5))
+plt.plot(fpr, tpr)
+plt.xlabel("False Positive Rate")
+plt.ylabel("True Positive Rate")
+plt.title("ROC Curve")
+plt.show()
+```
+
+# Decision Tree
+
+```{python}
+X_dt = df[['cp', 'age', 'sex', 'thalach']]
+y = df['output']
+pipe_tree = Pipeline([
+  ("scaler", StandardScaler()),    
+  ("tree", DecisionTreeClassifier())
+])
+param_grid = {
+    "tree__max_depth": [2, 3, 4, 5, 6, 8, 10],
+    "tree__min_samples_leaf": [1, 5, 10, 11, 12, 13, 14, 15]
+}
+grid_tree = GridSearchCV(pipe_tree, param_grid, scoring='roc_auc', cv=5)
+grid_tree.fit(X_dt, y)
+
+print("Tree best params:", grid_tree.best_params_)
+print("Best cv ROC AUC:", grid_tree.best_score_)
+
+best_tree = grid_tree.best_estimator_
+cv_scorestree = cross_val_predict(best_tree, X_dt, y, cv=5, method="predict_proba")[:, 1]
+cv_probtree  = (cv_scorestree >= 0.5).astype(int)
+
+print(confusion_matrix(y, cv_probtree))
+final_tree = best_tree.fit(X_dt, y)
+importances = pd.DataFrame({
+    "Feature": X_dt.columns,
+    "Importance": final_tree.named_steps["tree"].feature_importances_
+}).sort_values("Importance", ascending=False)
+print(importances)
+fpr, tpr, _ = roc_curve(y, cv_probtree)
+plt.figure(figsize=(5,5))
+plt.plot(fpr, tpr)
+plt.xlabel("False Positive Rate")
+plt.ylabel("True Positive Rate")
+plt.title("ROC Curve")
+plt.show()
+```
+
+# Q4: Interpretation
+
+Which predictors were most important to predicting heart attack risk?
+
+cp, age, thalach, and sex are the most important to predicting heart attack risk based on the results from my coefficients. Those coefficients had the highest absolute values out of the variables in the dataset.
+
+Coefficients Interpretations Log:
+
+Chest pain type is the strongest predictor for risk of a heart attack at +1.41. With thalach, higher maximum heart rate is another strong predictor for risk of heart attack at +1.13. resting electrocardiographic results only slighly increases risk of heart attack at +0.15. Higher cholesterol slighly decreases risk of heart attack at -0.27. When both thalach and age is high, the risk decreases relative to their individual effect at -0.29. Higher resting blood pressure decreases risk of heart attack at -0.31. The impact of cp on heart risk is lesser when sex is male at - 0.69. When sex is male heart risk decreases at -0.73.
+
+Coefficients Interpretations Decision Tree:
+
+Chest pain is the most important predictor as over half the splits from the tree comes from it at 0.585. Next is age at over just 15 percent of the splits at 0.157, then sex at 0.141, and then thalach as the least important predictor at 0.117.
+
+# Process of finding the best Model
+I tried interaction variables, polynomials but the best roc/auc value I got was from nearest neighbors when I made the predictors only cp, age, thalach, and sex. In terms of the k value, I tried many larger values for k but after experimenting I found that k=26 produced the best results, k=25 was the value I had before doing much experimenting. 
+
+The best model I found for the logistic model was when I used the all the predictors and the interaction variable age_thalach, and sex_cp which respectively adjusts for age relative to max heart rate, and gender for chest pain. I tried removing varibales and using different interaction variables but what I used seemed to be the most effective. Also I used elastic net as my penalty which was the most effective penalty and more effective than not having any penalties.
+
+The best model I found for decision trees was when I used the predictors cp, age, thalach, and sex, as I mentioned before these were the most important metrics so the best results came from when I used those 4 variables. I tried using interaction variables but it seemed to not improve the model. I experimented with the leaf depth but the best seemed to be 3 and the best min sample was 12, I had it at 10 before but experimented with more larger values and the best ended up being 12.
+
+# Part Two: Metrics
+
+# KNN
+```{python}
+
+TP, FP, FN, TN = 90, 37, 22, 124
+
+recall = TP / (TP + FN)
+precision = TP / (TP + FP)
+specificity = TN / (TN + FP)
+print("recall=", recall)
+print("precision=", precision)
+print("specificity=", specificity)
+
+```
+
+# Logistic
+```{python}
+
+TP, FP, FN, TN = 96, 31, 33, 113
+
+recall = TP / (TP + FN)
+precision = TP / (TP + FP)
+specificity = TN / (TN + FP)
+print("recall=", recall)
+print("precision=", precision)
+print("specificity=", specificity)
+
+```
+
+# Decision Trees
+```{python}
+
+TP, FP, FN, TN = 101, 26, 36, 110
+
+recall = TP / (TP + FN)
+precision = TP / (TP + FP)
+specificity = TN / (TN + FP)
+print("recall=", recall)
+print("precision=", precision)
+print("specificity=", specificity)
+
+```
+
+# Part Three: Discussion
+
+Q1
+The hospital faces severe lawsuits if they deem a patient to be low risk, and that patient later experiences a heart attack.
+
+I would use recall because the goal is to measure false negative. I would reccomend KNN because it has the highest recall rate out of the three models. About 80% of the time we would expect a patient that was deemed low risk was actually low risk, and does not have a heart attack.
+
+Q2
+The hospital is overfull, and wants to only use bed space for patients most in need of monitoring due to heart attack risk.
+
+I would use precision because the goal is to measure false positive. I would reccomend decision trees because it has the highest precision rate out of the three models. About 79% of the time we would expect that a patient who needs bed space due to high heart attack risk actually requires it and is given to the right person.
+
+
+Q3
+The hospital is studying root causes of heart attacks, and would like to understand which biological measures are associated with heart attack risk
+
+I would use the model that shows coefficients which is log because they want to understand the measures specifically. The ROC, and AUC metric would still be valuable becase you don't want to be looking at the coefficients of a poor model. We would expect an ROC AUC at around 0.859 based on the elastic log model above.
+
+
+Q4
+The hospital is training a new batch of doctors, and they would like to compare the diagnoses of these doctors to the predictions given by the algorithm to measure the ability of new doctors to diagnose patients.
+
+I would use aoc and roc if I have to chose a metric as it's the best all in compassing metric that I have for my models, and it shows the validity of the model. I would choose logistic for my model as it both as a high AUC score at 0.859 and has a balanced recall and precision, which would be the fairest way of measuring performance. We would expect an ROC AUC at around 0.859 based on the log model I have used.
+
+# Part Four: Validation
+
+# KNN
+
+```{python}
+df_new = pd.read_csv("https://www.dropbox.com/s/jkwqdiyx6o6oad0/heart_attack_validation.csv?dl=1")
+df_new["age_chol"] = df_new["age"] * df_new["chol"]
+df_new["age_thalach"] = df_new["age"] * df_new["thalach"]
+df_new["cp_sex"] = df_new["sex"] * df_new["cp"]
+df_new["cp_age"] = df_new["cp"] * df_new["age"]
+
+X_k = df_new[['cp', 'age', 'sex', 'thalach']]
+X_l = df_new[['cp', 'age', 'sex', 'thalach', 'trtbps','chol','restecg', 'age_thalach',"cp_sex"]]
+X_d = df_new[['cp', 'age', 'sex', 'thalach']]
+y_val = df_new["output"]
+
+y_pred_knn = final_knn.predict(X_k)
+y_prob_knn = final_knn.predict_proba(X_k)[:, 1]
+
+auc_knn = roc_auc_score(y_val, y_prob_knn)
+prec_knn = precision_score(y_val, y_pred_knn)
+rec_knn = recall_score(y_val, y_pred_knn)
+cm_knn = confusion_matrix(y_val, y_pred_knn)
+print("auc:",auc_knn)
+print("precision:", prec_knn)
+print("recall:", rec_knn)
+print(cm_knn)
+```
+
+# Logistic
+
+```{python}
+
+y_pred_log = final_log.predict(X_l)
+y_prob_log = final_log.predict_proba(X_l)[:, 1]
+
+auc_log = roc_auc_score(y_val, y_prob_log)
+prec_log = precision_score(y_val, y_pred_log)
+rec_log = recall_score(y_val, y_pred_log)
+cm_log = confusion_matrix(y_val, y_pred_log)
+print("auc:",auc_log)
+print("precision:", prec_log)
+print("recall:", rec_log)
+print(cm_log)
+```
+
+# Decision Tree
+
+```{python}
+
+y_pred_tree = final_tree.predict(X_d)
+y_prob_tree = final_tree.predict_proba(X_d)[:, 1]
+
+auc_tree = roc_auc_score(y_val, y_prob_tree)
+prec_tree = precision_score(y_val, y_pred_tree)
+rec_tree = recall_score(y_val, y_pred_tree)
+cm_tree = confusion_matrix(y_val, y_pred_tree)
+print("auc:",auc_tree)
+print("precision:", prec_tree)
+print("recall:", rec_tree)
+print(cm_tree)
+```
+
+Compare these values to the cross-validated estimates you reported in Part One and Part Two. Did our measure of model success turn out to be approximately correct for the validation data?
+
+The results were slightly different, the logistic model performed better here, when KNN performed better on the original data. Although the difference remains small in both the original and new data, decision trees are a distant third for both the new and old data.
+
+# Part Five: Cohen’s Kappa
+```{python}
+
+kappa = cohen_kappa_score(y_val, y_pred_knn)
+print("Cohen's Kappa KNN:", kappa)
+kappa1 = cohen_kappa_score(y_val, y_pred_log)
+print("Cohen's Kappa Log:", kappa1)
+kappa2 = cohen_kappa_score(y_val, y_pred_tree)
+print("Cohen's Kappa Tree:", kappa2)
+```
+Kappa is useful as a metric over what we used potentially because it corrects for class imbalance, which essentially accounts for making predictions just based on the majority. It focuses on the true agreement between the two classes. It does change, the logistic model becomes the clear best model, the KNN model becomes second and the decision tree model becomes a distant third. I think this makes sense because the logistic model had more of a balance between the false/true positives and false/true negatives then KNN did. Since this model is designed to account for exactly that it makes sense that logistic is now the best model.
