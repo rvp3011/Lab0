@@ -1,0 +1,375 @@
+---
+title: "Lab 8"
+author: "Raghav Pradeep"
+format: 
+  html:
+    code-fold: true
+    code-line-numbers: true
+    code-tools: true
+    self-contained: true
+execute:
+  message: false
+  echo: false
+  eval: true
+---
+<https://github.com/rvp3011/Lab0>
+```{python}
+import pandas as pd
+import numpy as np
+from sklearn.pipeline import Pipeline
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.tree import DecisionTreeClassifier, plot_tree
+from sklearn.linear_model import LogisticRegression
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis
+from sklearn.model_selection import cross_val_score
+from sklearn.svm import SVC
+import matplotlib.pyplot as plt
+from sklearn.model_selection import GridSearchCV
+from sklearn.metrics import confusion_matrix
+import warnings
+df = pd.read_csv("cannabis_full.csv")
+#df.info()
+warnings.filterwarnings("ignore")
+
+```
+# Part One: Binary Classification
+
+I am using accuracy as the metric of choice because there is no correct class, we want to know the missclassification for all of them. We don't want one class prioritized over another.
+
+# Q1: LDA
+
+```{python}
+
+df_new = df[(df["Type"] == "sativa") | (df["Type"] == "indica")].copy()
+df_new["Type"] = df_new["Type"].map({"indica":0, "sativa":1})
+
+df_new = df_new.dropna()
+
+
+X = df_new.select_dtypes(include="number").drop(columns=["Type"])
+y = df_new["Type"]
+
+param_grid = {
+    "solver": ["svd", "lsqr", "eigen"]
+}
+
+lda = LinearDiscriminantAnalysis()
+
+grid = GridSearchCV(
+    lda,
+    param_grid,
+    scoring="accuracy",
+    cv=10
+)
+
+grid.fit(X, y)
+print("Best LDA parameter:", grid.best_params_)
+print("Best cv metric:", grid.best_score_)
+best_lda = grid.best_estimator_
+y_pred = best_lda.predict(X)
+cm = confusion_matrix(y, y_pred)
+cm
+
+```
+
+# Q2: QDA
+
+
+```{python}
+
+
+param_grid = {
+    "reg_param": [0.0, 0.001, 0.01, 0.1, 0.25, 0.5]
+}
+
+qda = QuadraticDiscriminantAnalysis()
+
+grid_qda = GridSearchCV(
+    qda,
+    param_grid,
+    scoring="accuracy",
+    cv=10
+)
+
+grid_qda.fit(X, y)
+print("Best QDA parameter:", grid_qda.best_params_)
+print("Best cv metric:", grid_qda.best_score_)
+best_qda = grid_qda.best_estimator_
+y_pred = best_qda.predict(X)
+cm = confusion_matrix(y, y_pred)
+cm
+
+```
+# Q3: SVC
+
+```{python}
+
+svc = SVC(kernel="linear")
+
+param_grid_svc = {
+    "C": [0.01, 0.1, 1, 10, 100]
+}
+grid_svc = GridSearchCV(
+    svc,
+    param_grid_svc,
+    scoring="accuracy",
+    cv=10,
+)
+grid_svc.fit(X, y)
+print("Best scv parameter:", grid_svc.best_params_)
+print("Best cv metric:", grid_svc.best_score_)
+best_svc = grid_svc.best_estimator_
+best_svc.fit(X, y)
+
+y_pred_svc = best_svc.predict(X)
+
+cm = confusion_matrix(y, y_pred_svc)
+cm
+```
+
+# Q4: SVM
+
+```{python}
+
+svm_poly = SVC(kernel="poly")
+param_grid_svm_poly= {
+    "C": [0.1, 1, 10],
+    "degree": [2, 3, 4],
+    "gamma": ["scale", "auto"],
+    "coef0": [0.0, 1.0]
+}
+grid_svm_poly = GridSearchCV(
+    svm_poly,
+    param_grid_svm_poly,
+    scoring="accuracy",
+    cv=10,
+    error_score=np.nan
+)
+
+grid_svm_poly.fit(X, y)
+print("Best svm parameter:", grid_svm_poly.best_params_)
+print("Best cv metric:", grid_svm_poly.best_score_)
+best_svm_poly = grid_svm_poly.best_estimator_
+best_svm_poly.fit(X, y)
+
+y_pred_svm_poly = best_svm_poly.predict(X)
+
+cm = confusion_matrix(y, y_pred_svm_poly)
+cm
+```
+# Part Two: Natural Multiclass
+
+```{python}
+df_new = df.copy()
+df_new = df_new.dropna()
+
+df_new["Type_num"] = df_new["Type"].map({
+    "indica": 0,
+    "sativa": 1,
+    "hybrid": 2
+})
+
+X = df_new.select_dtypes(include="number").drop(columns=["Type_num"])
+y = df_new["Type_num"]
+tree = DecisionTreeClassifier(
+    criterion="gini",
+    max_depth=None,  
+    random_state=0
+)
+
+tree.fit(X, y)
+plt.figure(figsize=(16, 12))
+plot_tree(tree,
+          feature_names=X.columns,
+          class_names=["Indica","Sativa","Hybrid"],
+          filled=True,
+          max_depth=3)   
+plt.show()
+```
+# Interpretation
+The decision tree shows that sleepy is the most important predictor, and other features such as citrus and energetic are important as predictors too. Hybrid seems like the hardest class to predict as it has overlap betwwen both Sativa and Indica.
+
+```{python}
+
+param_grid = {
+    "solver": ["svd", "lsqr", "eigen"]
+}
+
+lda = LinearDiscriminantAnalysis()
+
+grid = GridSearchCV(
+    lda,
+    param_grid,
+    scoring="accuracy",
+    cv=10
+)
+
+grid.fit(X, y)
+print("Best LDA parameter:", grid.best_params_)
+print("Best cv metric:", grid.best_score_)
+best_lda = grid.best_estimator_
+y_pred = best_lda.predict(X)
+cm = confusion_matrix(y, y_pred)
+cm
+
+```
+
+```{python}
+
+
+param_grid = {
+    "reg_param": [0.0, 0.001, 0.01, 0.1, 0.25, 0.5]
+}
+
+qda = QuadraticDiscriminantAnalysis()
+
+grid_qda = GridSearchCV(
+    qda,
+    param_grid,
+    scoring="accuracy",
+    cv=10
+)
+
+grid_qda.fit(X, y)
+print("Best QDA parameter:", grid_qda.best_params_)
+print("Best cv metric:", grid_qda.best_score_)
+best_qda = grid_qda.best_estimator_
+y_pred = best_qda.predict(X)
+cm = confusion_matrix(y, y_pred)
+cm
+
+```
+
+```{python}
+
+knn = KNeighborsClassifier()
+
+param_grid_knn = {
+    "n_neighbors": [3, 5, 7, 9, 11],
+    "weights": ["uniform", "distance"]
+}
+
+grid_knn = GridSearchCV(
+    knn,
+    param_grid_knn,
+    scoring="accuracy",
+    cv=10
+)
+
+grid_knn.fit(X, y)
+
+print("Best KNN paramater:", grid_knn.best_params_)
+print("Best cv metric:", grid_knn.best_score_)
+
+best_knn = grid_knn.best_estimator_
+y_pred = best_knn.predict(X)
+cm_knn = confusion_matrix(y, y_pred)
+```
+# Were your metrics better or worse than in Part One? Why? Which categories were most likely to get mixed up, according to the confusion matrices? Why?
+
+The mertrics are worse than they were in part one, this makes sense because we are adding one more category in hybrid which makes it more likely for the model to make a mistake in misclassifiying one of Sativa, Indica and Hybrid. Hybrid is the most category to be mixed based on the confusion matrixes, this makes sense because it shares qualities of both as it's kind of in between Sativa and Indica. So it would naturally make sense for it to be misclassified as one or the other.
+
+# Part Three: Multiclass from Binary
+
+# Q1
+```{python}
+
+y_indica = (y == 0).astype(int)
+
+svc_indica = SVC(kernel="linear")    
+svc_indica_scores = cross_val_score(svc_indica, X, y_indica, cv=10, scoring="accuracy")
+print("OvR SVC: Indica vs Not-Indica, cv metric:", svc_indica_scores.mean())
+
+log_indica = LogisticRegression()
+log_indica_scores = cross_val_score(log_indica, X, y_indica, cv=10, scoring="accuracy")
+print("OvR LogReg: Indica vs Not-Indica, cv metric:", log_indica_scores.mean())
+```
+
+```{python}
+y_sativa = (y == 1).astype(int)
+
+svc_sativa = SVC(kernel="linear")
+svc_sativa_scores = cross_val_score(svc_sativa, X, y_sativa, cv=10, scoring="accuracy")
+print("OvR SVC: Sativa vs Not-Sativa, cv metric:", svc_sativa_scores.mean())
+
+log_sativa = LogisticRegression()
+log_sativa_scores = cross_val_score(log_sativa, X, y_sativa, cv=10, scoring="accuracy")
+print("OvR LogReg: Sativa vs Not-Sativa, cv metric:", log_sativa_scores.mean())
+```
+
+```{python}
+y_hybrid = (y == 2).astype(int)
+
+svc_hybrid = SVC(kernel="linear")
+svc_hybrid_scores = cross_val_score(svc_hybrid, X, y_hybrid, cv=10, scoring="accuracy")
+print("OvR SVC: Hybrid vs Not-Hybrid, cv metric:", svc_hybrid_scores.mean())
+
+log_hybrid = LogisticRegression()
+log_hybrid_scores = cross_val_score(log_hybrid, X, y_hybrid, cv=10, scoring="accuracy")
+print("OvR LogReg: Hybrid vs Not-Hybrid, cv metric:", log_hybrid_scores.mean())
+```
+# Q2
+
+Which of the six models did the best job distinguishing the target category from the rest? Which did the worst? Does this make intuitive sense?
+
+Logistic, Sativa vs Non Sativa did the best. SVC, Hybrid vs Non Hybrid did the worst. This makes sense because as mentioned before Hybrid is a mix of the two, as it has traits of both it makes sense that that accuracy rate is a little low. Sativa doing the best does also make sense because it is quite distinct, but that one I wouldn't say is as intuitive as hybrid.
+
+# Q3
+
+```{python}
+mask_indica_sativa = y.isin([0, 1])
+mask_indica_hybrid = y.isin([0, 2])
+mask_hybrid_sativa = y.isin([1, 2])
+X_is = X[mask_indica_sativa]
+y_is = y[mask_indica_sativa]
+
+
+svc_is = SVC(kernel="linear")
+svc_is_scores = cross_val_score(svc_is, X_is, y_is, cv=10, scoring="accuracy")
+print("OvO SVC: Indica vs Sativa, cv metric:", svc_is_scores.mean())
+
+log_is = LogisticRegression()
+log_is_scores = cross_val_score(log_is, X_is, y_is, cv=10, scoring="accuracy")
+print("OvO LogReg: Indica vs Sativa, cv metric:", log_is_scores.mean())
+```
+```{python}
+X_ih = X[mask_indica_hybrid]
+y_ih = y[mask_indica_hybrid]
+
+svc_ih = SVC(kernel="linear")
+svc_ih_scores = cross_val_score(svc_ih, X_ih, y_ih, cv=10, scoring="accuracy")
+print("OvO SVC: Indica vs Hybrid, cv metric:", svc_ih_scores.mean())
+
+log_ih = LogisticRegression()
+log_ih_scores = cross_val_score(log_ih, X_ih, y_ih, cv=10, scoring="accuracy")
+print("OvO LogReg: Indica vs Hybrid, cv metric:", log_ih_scores.mean())
+```
+
+```{python}
+
+X_hs = X[mask_hybrid_sativa]
+y_hs = y[mask_hybrid_sativa]
+
+svc_hs = SVC(kernel="linear")
+svc_hs_scores = cross_val_score(svc_hs, X_hs, y_hs, cv=10, scoring="accuracy")
+print("OvO SVC: Hybrid vs Sativa, cv metric:", svc_hs_scores.mean())
+
+log_hs = LogisticRegression()
+log_hs_scores = cross_val_score(log_hs, X_hs, y_hs, cv=10, scoring="accuracy")
+print("OvO LogReg: Hybrid vs Sativa, cv metric:", log_hs_scores.mean())
+```
+
+# Q4
+Which of the six models did the best job distinguishing at differentiating the two groups? Which did the worst? Does this make intuitive sense?
+
+Indica vs Sativa log did the best, Hybrid vs Sativa SVC did the worst. I would say the non hybird group performing the best makes sense since Hybrid shares qualities of Sativa and Indica. While Sativa vs Indica don't generally share qualities with each other making it make sense that that one performed the best. I would say Hybrid vs Sativa SVC performing the worst is intuitive in the fact that the hybrid one would do the worst but whether it performs worse than indica or not is not obvious. The numbers being so close is proof of that.
+
+# Q5
+Suppose you had simply input the full data, with three classes, into the LogisticRegression function. Would this have automatically taken an “OvO” approach or an “OvR” approach?
+
+If you use the logreg function it automatically takes the OVR approach. 
+
+What about for SVC?
+
+SVC is the opposite it automatically takes the OvO approach. 
